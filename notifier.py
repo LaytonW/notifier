@@ -87,7 +87,7 @@ def sortKey(t):
     return int(date), t
 
 def query(curr, l):
-    msg = ""
+    msg = "<table><tr><td><u>Date</u></td><td width=10></td><td><u>Time</u></td><td width=10></td><td width=70><u>Course Code</u></td><td width=10></td><td><u>Description</u></td><td width=10></td><td><u>Venue</u></td></tr>"
     found = list()
     nfound = list()
     for q in l:
@@ -99,13 +99,13 @@ def query(curr, l):
                 found.append(p)
     found = sorted(found, key=sortKey)
     for e in found:
-        s = '  '
         code, name, date, time, venu = e
-        msg += s.join((date, time, code, name, venu)) + "\r\n"
+        msg += '<tr><td valign=top width=48>{}</td><td width=10></td><td valign=top width=170>{}</td><td width=10></td><td valign=top width=50>{}</td><td width=10></td><td valign=top width=210>{}</td><td width=10></td><td valign=top>{}</td></tr>'.format(date, time, code, name, venu)
+    msg += '</table>'
     if len(nfound) != 0:
-        msg += "\r\n"
+        msg += '<br><br>'
     for e in nfound:
-        msg += 'No record of exam for ' + e + '.\r\n'
+        msg += 'No record of exam for {}.<br>'.format(e)
     return msg
 
 def subscribe(c, n, a, q):
@@ -115,36 +115,38 @@ def subscribe(c, n, a, q):
 
 def forward(curr, t):
     import smtplib
+    from email.mime.multipart import MIMEMultipart
+    from email.mime.text import MIMEText
     if curr not in subscribers:
         return
     l = subscribers[curr]
     for s in l:
         name, addr, cour = s
         print "Forwarding to ", name, " with addr ", addr
-        msg = "\r\n".join(["From: wzx.automail@gmail.com",
-                           "To: " + addr,
-                           "Subject: (noreply) Updated Exam Timetable",
-                           "",
-                           "Dear " + name + ",\r\n\r\n"
-                           + "Your subscribed exam timetable updated at "
-                           + str(t) +".\r\n\r\n" + query(curr, cour)
-                           + "\r\n\r\nThank you very much for your support!"
-                           + "\r\n------------------------------------------------------"
-                           + "\r\nThis is an automatically generated email, "
-                           + "please DO NOT reply."])
-        server = smtplib.SMTP('smtp.gmail.com:587')
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = '(noreply) Updated Exam Timetable'
+        msg['From'] = 'noreply@wangzixu.me'
+        msg['To'] = addr
+        text = '<html><body>Dear {},<br><br>Your subscribed exam timetable has been updated.<br><br>{}<br><br>Note that this is NOT the official personal exam timetable. Thank you for your support!</body></html>'.format(name, query(curr, cour))
+        msg.attach(MIMEText(text, 'html'))
+        server = smtplib.SMTP('mail.wangzixu.me:26')
         server.ehlo()
         server.starttls()
-        server.login('wzx.automail@gmail.com', 'automail')
-        server.sendmail('wzx.automail@gmail.com', [addr], msg)
+        server.login('noreply@wangzixu.me', '!Q@W#E$R')
+        server.sendmail('noreply@wangzixu.me', [addr], msg.as_string())
         server.quit()
+
+def checkSubscribe():
+    pass
 
 import urllib2 as ul
 import time
 import thread
 from datetime import datetime
 
-subscribe('BEng', 'Wang Zixu', 'wangzixu.china@gmail.com', ['COMP2123', 'COMP2121', 'COMP2396', 'ECON1210', 'HAHA2333'])
+subscribe('BEng', 'Wang Zixu', 'wangzixu.china@gmail.com', ['COMP2123', 'COMP2121', 'COMP2396', 'ELEC2346', 'ELEC3241'])
+#subscribe('BEcon&Fin', 'Wang Jing', 'wj929570566@gmail.com', ['COMP2121', 'ECON2220', 'FINA2322', 'FINA2320', 'MATH2101', 'ECON2280'])
+#subscribe('BEng', 'Ji Zhuoran', 'jizr@hku.hk', ['COMP2123', 'COMP2121', 'COMP3317', 'ELEC4543', 'MATH2101', 'COMP3278'])
 
 while True:
     for curr in url:
@@ -156,10 +158,10 @@ while True:
             print "Initialize table for ", curr
             updateTime[curr] = lastModify
             table[curr] = updateTimetable(url[curr])
-            #forward(curr, lastModify)
-        elif lastUpdate < lastModify:
+            forward(curr, lastModify)
+        elif int((lastModify - lastUpdate).days) > 90:
             print "Update table for ", curr
             updateTime[curr] = lastModify
             table[curr] = updateTimetable(url[curr])
-            #forward(curr, lastModify)
+            forward(curr, lastModify)
     time.sleep(10)
