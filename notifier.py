@@ -9,8 +9,7 @@ url = {'BA(ArchStud)' : 'http://www.exam.hku.hk/timetable/BA-ARCHSTUD.htm',
        'BBA(IBGM)' : 'http://www.exam.hku.hk/timetable/BBA-IBGM.htm',
        'BBA(IS)' : 'http://www.exam.hku.hk/timetable/BBA-IS.htm',
        'BBA(Law)' : 'http://www.exam.hku.hk/timetable/BBA-LAW.htm',
-       'BBA(LAW)&LLB' : 'http://www.exam.hku.hk/timetable/BBA-LAWLLB.htm',
-       'BBA(UrbanStud)' : 'http://www.exam.hku.hk/timetable/BA-URBANSTUD.htm',
+       'BBA(Law)&LLB' : 'http://www.exam.hku.hk/timetable/BBA-LAWLLB.htm',
        'BEcon' : 'http://www.exam.hku.hk/timetable/BECON.htm',
        'BEcon&Fin' : 'http://www.exam.hku.hk/timetable/BECON-FIN.htm',
        'BSc(QFin)' : 'http://www.exam.hku.hk/timetable/BSC-QFIN.htm',
@@ -44,6 +43,8 @@ url = {'BA(ArchStud)' : 'http://www.exam.hku.hk/timetable/BA-ARCHSTUD.htm',
        'BSocSc(Govt&Laws)' : 'http://www.exam.hku.hk/timetable/BSOC-GL.htm',
        'Bachelor of Criminal Justice Examination' : 'http://www.exam.hku.hk/timetable/BCJ.htm',
        }
+
+import sys
 
 table = {}
 updateTime = {}
@@ -108,60 +109,99 @@ def query(curr, l):
         msg += 'No record of exam for {}.<br>'.format(e)
     return msg
 
-def subscribe(c, n, a, q):
-    if c not in subscribers:
-        subscribers[c] = list()
-    subscribers[c].append((n, a, q))
-
 def forward(curr, t):
     import smtplib
     from email.mime.multipart import MIMEMultipart
     from email.mime.text import MIMEText
-    if curr not in subscribers:
-        return
-    l = subscribers[curr]
-    for s in l:
-        name, addr, cour = s
-        print "Forwarding to ", name, " with addr ", addr
-        msg = MIMEMultipart('alternative')
-        msg['Subject'] = '(noreply) Updated Exam Timetable'
-        msg['From'] = 'noreply@wangzixu.me'
-        msg['To'] = addr
-        text = '<html><body>Dear {},<br><br>Your subscribed exam timetable has been updated.<br><br>{}<br><br>Note that this is NOT the official personal exam timetable. Thank you for your support!</body></html>'.format(name, query(curr, cour))
-        msg.attach(MIMEText(text, 'html'))
-        server = smtplib.SMTP('mail.wangzixu.me:26')
-        server.ehlo()
-        server.starttls()
-        server.login('noreply@wangzixu.me', '!Q@W#E$R')
-        server.sendmail('noreply@wangzixu.me', [addr], msg.as_string())
-        server.quit()
-
-def checkSubscribe():
-    pass
+    try:
+        if curr not in subscribers:
+            return
+        l = subscribers[curr]
+    except:
+        pass
+    else:
+        for s in l:
+            try:
+                name, addr, cour = s
+                msg = MIMEMultipart('alternative')
+                msg['Subject'] = '(noreply) Updated Exam Timetable'
+                msg['From'] = 'noreply@wangzixu.me'
+                msg['To'] = addr
+                text = '<html><body>Dear {},<br><br>Your subscribed exam timetable has been updated at {}.<br><br>{}<br><br>Note that this is NOT the official personal exam timetable. Thank you for your support!</body></html>'.format(name, t, query(curr, cour))
+                msg.attach(MIMEText(text, 'html'))
+                server = smtplib.SMTP('mail.wangzixu.me:26')
+                server.ehlo()
+                server.starttls()
+                server.login('noreply@wangzixu.me', '[password]')
+                server.sendmail('noreply@wangzixu.me', [addr], msg.as_string())
+                server.quit()
+            except:
+            pass
 
 import urllib2 as ul
 import time
 import thread
 from datetime import datetime
+import sys
 
-subscribe('BEng', 'Wang Zixu', 'wangzixu.china@gmail.com', ['COMP2123', 'COMP2121', 'COMP2396', 'ELEC2346', 'ELEC3241'])
-#subscribe('BEcon&Fin', 'Wang Jing', 'wj929570566@gmail.com', ['COMP2121', 'ECON2220', 'FINA2322', 'FINA2320', 'MATH2101', 'ECON2280'])
-#subscribe('BEng', 'Ji Zhuoran', 'jizr@hku.hk', ['COMP2123', 'COMP2121', 'COMP3317', 'ELEC4543', 'MATH2101', 'COMP3278'])
+def checkSubscribe():
+    import json
+    while True:
+        try:
+            f = open('../data/sub', 'r')
+        except IOError as e:
+            pass
+        else:
+            for line in f:
+                try:
+                    x = json.loads(line)
+                    name = x['name'].strip().encode('ascii')
+                    addr = x['addr'].strip().encode('ascii')
+                    curr = x['curr'].strip().encode('ascii')
+                    cour = x['cour'].strip().encode('ascii')
+                    q = cour.split(',')
+                    for i in range(len(q)):
+                        q[i] = q[i].strip()
+                    if curr not in subscribers:
+                        subscribers[curr] = list()
+                    if (name, addr, q) not in subscribers[curr]:
+                        subscribers[curr].append((name, addr, q))
+                        import smtplib
+                        from email.mime.multipart import MIMEMultipart
+                        from email.mime.text import MIMEText
+                        msg = MIMEMultipart('alternative')
+                        msg['Subject'] = '(noreply) Comfirmation of Subscription'
+                        msg['From'] = 'noreply@wangzixu.me'
+                        msg['To'] = addr
+                        text = '<html><body>Dear {},<br><br>This email is to comfirm that you have successfully subscribed exam timetable update for the following courses:<br><br>{}<br><br>Thank you for your support!</body></html>'.format(name, str(q)[1:-1])
+                        msg.attach(MIMEText(text, 'html'))
+                        server = smtplib.SMTP('mail.wangzixu.me:26')
+                        server.ehlo()
+                        server.starttls()
+                        server.login('noreply@wangzixu.me', '[password]')
+                        server.sendmail('noreply@wangzixu.me', [addr], msg.as_string())
+                        server.quit()
+                except:
+                    pass
+            f.close()
+        time.sleep(60)
+
+thread.start_new_thread(checkSubscribe, ())
 
 while True:
     for curr in url:
-        if curr not in updateTime:
-            updateTime[curr] = None
-        lastUpdate = updateTime[curr]
-        lastModify = datetime.fromtimestamp(time.mktime(ul.urlopen(url[curr]).info().getdate('last-modified')))
-        if lastUpdate == None:
-            print "Initialize table for ", curr
-            updateTime[curr] = lastModify
-            table[curr] = updateTimetable(url[curr])
-            forward(curr, lastModify)
-        elif int((lastModify - lastUpdate).days) > 90:
-            print "Update table for ", curr
-            updateTime[curr] = lastModify
-            table[curr] = updateTimetable(url[curr])
-            forward(curr, lastModify)
+        try:
+            if curr not in updateTime:
+                updateTime[curr] = None
+            lastUpdate = updateTime[curr]
+            lastModify = datetime.fromtimestamp(time.mktime(ul.urlopen(url[curr]).info().getdate('last-modified')))
+            if lastUpdate == None:
+                updateTime[curr] = lastModify
+                table[curr] = updateTimetable(url[curr])
+            elif int((lastModify - lastUpdate).days) > 90:
+                updateTime[curr] = lastModify
+                table[curr] = updateTimetable(url[curr])
+                forward(curr, lastModify)
+        except:
+            pass
     time.sleep(10)
